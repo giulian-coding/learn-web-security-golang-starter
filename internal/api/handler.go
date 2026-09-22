@@ -55,7 +55,7 @@ func (handler *Handler) AccountOrders(responseWriter http.ResponseWriter, reques
 }
 
 func (handler *Handler) Order(responseWriter http.ResponseWriter, request *http.Request) {
-	_, ok := handler.requireAuthentication(responseWriter, request)
+	current, ok := handler.requireAuthentication(responseWriter, request)
 	if !ok {
 		return
 	}
@@ -70,6 +70,10 @@ func (handler *Handler) Order(responseWriter http.ResponseWriter, request *http.
 		return
 	}
 	if !found {
+		httpx.RespondWithJSON(responseWriter, http.StatusNotFound, map[string]string{"error": "Order not found"})
+		return
+	}
+	if order.UserID != current.User.ID {
 		httpx.RespondWithJSON(responseWriter, http.StatusNotFound, map[string]string{"error": "Order not found"})
 		return
 	}
@@ -95,6 +99,20 @@ func (handler *Handler) Products(responseWriter http.ResponseWriter, request *ht
 }
 
 func (handler *Handler) WarehouseOrders(responseWriter http.ResponseWriter, request *http.Request) {
+	apiKey := request.Header.Get("X-API-Key")
+	validatedKey, valid, err := handler.apiStore.FindKey(request.Context(), apiKey)
+	if valid != true {
+		httpx.RespondWithJSON(responseWriter, http.StatusUnauthorized, map[string]any{
+			"error": "invalid API Key",
+		})
+		return
+	}
+	if validatedKey.Scope != "orders:read" {
+		httpx.RespondWithJSON(responseWriter, http.StatusForbidden, map[string]any{
+			"error": "missing API Key permissions",
+		})
+		return
+	}
 	orders, err := handler.orderStore.ListAll(request.Context())
 	if err != nil {
 		handler.internalError(responseWriter, request, err)
