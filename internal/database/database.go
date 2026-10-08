@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
@@ -28,7 +29,11 @@ func Open(ctx context.Context, databasePath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("create database directory: %w", err)
 	}
 
-	databaseURL := url.URL{Scheme: "file", Path: filepath.ToSlash(absolutePath)}
+	urlPath := filepath.ToSlash(absolutePath)
+	if !strings.HasPrefix(urlPath, "/") {
+		urlPath = "/" + urlPath
+	}
+	databaseURL := url.URL{Scheme: "file", Path: urlPath}
 	parameters := databaseURL.Query()
 	parameters.Add("_pragma", "foreign_keys(1)")
 	parameters.Add("_pragma", "busy_timeout(5000)")
